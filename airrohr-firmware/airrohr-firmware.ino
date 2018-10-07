@@ -123,6 +123,7 @@
 #include <DallasTemperature.h>
 #include <TinyGPS++.h>
 #include <Ticker.h>
+#include <array>
 
 #if defined(INTL_BG)
 #include "intl_bg.h"
@@ -1922,7 +1923,7 @@ void setup_webserver() {
 void wifiConfig() {
 	String SSID;
 	uint8_t* BSSID;
-	int channels_rssi[14];
+	std::array<int, 14> channels_rssi;
 	uint8_t AP_channel = 1;
 	DNSServer dnsServer;
 	IPAddress apIP(192, 168, 4, 1);
@@ -1940,9 +1941,8 @@ void wifiConfig() {
 	debug_out(F("scan for wifi networks..."), DEBUG_MIN_INFO, 1);
 	count_wifiInfo = WiFi.scanNetworks(false, true);
 	wifiInfo = (struct_wifiInfo *) malloc(count_wifiInfo * 100);
-	for (int i = 0; i < 14; i++) {
-		channels_rssi[i] = -100;
-	}
+	std::fill(channels_rssi.begin(), channels_rssi.end(), -100);
+
 	for (int i = 0; i < count_wifiInfo; i++) {
 		WiFi.getNetworkInfo(i, SSID, wifiInfo[i].encryptionType, wifiInfo[i].RSSI, BSSID, wifiInfo[i].channel, wifiInfo[i].isHidden);
 		SSID.toCharArray(wifiInfo[i].ssid, 35);
