@@ -1906,18 +1906,20 @@ void setup_webserver() {
 	server.begin();
 }
 
+static uint8_t selectChannelForAP(const std::array<int, 14> &channels_rssi) {
+	if ((channels_rssi[1] < channels_rssi[6]) && (channels_rssi[1] < channels_rssi[11])) {
+		return 1;
+	} else if ((channels_rssi[6] < channels_rssi[1]) && (channels_rssi[6] < channels_rssi[11])) {
+		return 6;
+	} else {
+		return 11;
+	}
+}
+
 /*****************************************************************
  * WifiConfig                                                    *
  *****************************************************************/
 void wifiConfig() {
-	String SSID;
-	uint8_t* BSSID;
-	std::array<int, 14> channels_rssi;
-	uint8_t AP_channel = 1;
-	DNSServer dnsServer;
-	IPAddress apIP(192, 168, 4, 1);
-	IPAddress netMsk(255, 255, 255, 0);
-
 	debug_out(F("Starting WiFiManager"), DEBUG_MIN_INFO, 1);
 	debug_out(F("AP ID: "), DEBUG_MIN_INFO, 0);
 	debug_out(fs_ssid, DEBUG_MIN_INFO, 1);
@@ -1930,28 +1932,29 @@ void wifiConfig() {
 	debug_out(F("scan for wifi networks..."), DEBUG_MIN_INFO, 1);
 	count_wifiInfo = WiFi.scanNetworks(false, true);
 	wifiInfo = (struct_wifiInfo *) malloc(count_wifiInfo * 100);
+
+	std::array<int, 14> channels_rssi;
 	std::fill(channels_rssi.begin(), channels_rssi.end(), -100);
 
 	for (int i = 0; i < count_wifiInfo; i++) {
+		uint8_t* BSSID;
+		String SSID;
 		WiFi.getNetworkInfo(i, SSID, wifiInfo[i].encryptionType, wifiInfo[i].RSSI, BSSID, wifiInfo[i].channel, wifiInfo[i].isHidden);
 		SSID.toCharArray(wifiInfo[i].ssid, 35);
 		if (wifiInfo[i].RSSI > channels_rssi[wifiInfo[i].channel]) {
 			channels_rssi[wifiInfo[i].channel] = wifiInfo[i].RSSI;
 		}
 	}
-	if ((channels_rssi[1] < channels_rssi[6]) && (channels_rssi[1] < channels_rssi[11])) {
-		AP_channel = 1;
-	} else if ((channels_rssi[6] < channels_rssi[1]) && (channels_rssi[6] < channels_rssi[11])) {
-		AP_channel = 6;
-	} else {
-		AP_channel = 11;
-	}
+
+	const uint8_t AP_channel = selectChannelForAP(channels_rssi);
 
 	WiFi.mode(WIFI_AP);
-	WiFi.softAPConfig(apIP, apIP, netMsk);
+	const IPAddress apIP(192, 168, 4, 1);
+	WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
 	WiFi.softAP(fs_ssid, fs_pwd, AP_channel);
 	debug_out(String(WLANPWD), DEBUG_MIN_INFO, 1);
 
+	DNSServer dnsServer;
 	dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
 	dnsServer.start(53, "*", apIP);							// 53 is port for DNS server
 
