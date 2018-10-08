@@ -1955,7 +1955,8 @@ void wifiConfig() {
 
 	DNSServer dnsServer;
 	dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-	dnsServer.start(53, "*", apIP);							// 53 is port for DNS server
+	const uint8_t DNS_SERVER_PORT = 53;
+	dnsServer.start(DNS_SERVER_PORT, "*", apIP);
 
 	// 10 minutes timeout for wifi config
 	last_page_load = millis();
