@@ -297,6 +297,18 @@ public:
 	double last_value_SDS_P1 = -1.0;
 	double last_value_SDS_P2 = -1.0;
 
+	void init() {
+		if (sds_read) {
+			//debug_out(F("Read SDS..."), DEBUG_MIN_INFO, 1);
+			cmd(SDS_START);
+			delay(100);
+			cmd(SDS_CONTINUOUS_MODE);
+			delay(100);
+			//debug_out(F("Stopping SDS011..."), DEBUG_MIN_INFO, 1);
+			cmd(SDS_STOP);
+		}
+	}
+
 	void cmd(const uint8_t cmd) {
 		uint8_t buf[SDS_cmd_len];
 		switch (cmd) {
@@ -946,7 +958,7 @@ void copyExtDef() {
 	setDef(dht_read, DHT_READ);
 	setDef(htu21d_read, HTU21D_READ);
 	setDef(ppd_read, PPD_READ);
-	setDef(sdsSensorDevice.sds_read, sdsSensorDevice.sds_read);
+	setDef(sdsSensorDevice.sds_read, SDS_READ);
 	setDef(pms24_read, PMS24_READ);
 	setDef(pms32_read, PMS32_READ);
 	setDef(hpm_read, HPM_READ);
@@ -3549,15 +3561,8 @@ void setup() {
 		pinMode(PPD_PIN_PM2, INPUT_PULLUP);                 // Listen at the designated PIN
 		debug_out(F("Read PPD..."), DEBUG_MIN_INFO, 1);
 	}
-	if (sdsSensorDevice.sds_read) {
-		debug_out(F("Read SDS..."), DEBUG_MIN_INFO, 1);
-		sdsSensorDevice.cmd(SDS_START);
-		delay(100);
-		sdsSensorDevice.cmd(SDS_CONTINUOUS_MODE);
-		delay(100);
-		debug_out(F("Stopping SDS011..."), DEBUG_MIN_INFO, 1);
-		sdsSensorDevice.cmd(SDS_STOP);
-	}
+	sdsSensorDevice.init();
+
 	if (pms24_read) {
 		debug_out(F("Read PMS3003..."), DEBUG_MIN_INFO, 1);
 	}
