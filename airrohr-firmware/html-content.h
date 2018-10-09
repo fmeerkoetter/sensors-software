@@ -22,12 +22,6 @@ const char SENSORS_BMP180[] PROGMEM = "BMP180";
 const char SENSORS_BMP280[] PROGMEM = "BMP280";
 const char SENSORS_BME280[] PROGMEM = "BME280";
 
-// PMSx003 commands
-const uint8_t start_PMS_cmd[] PROGMEM = { 0x42, 0x4D, 0xE4, 0x00, 0x01, 0x01, 0x74 };
-const uint8_t stop_PMS_cmd[] PROGMEM = { 0x42, 0x4D, 0xE4, 0x00, 0x00, 0x01, 0x73 };
-const uint8_t continuous_mode_PMS_cmd[] PROGMEM = { 0x42, 0x4D, 0xE1, 0x00, 0x01, 0x01, 0x71 };
-const uint8_t PMS_cmd_len = 7;
-
 const char WEB_PAGE_HEADER[] PROGMEM = "<html>\
 <head>\
 <title>{t}</title>\
