@@ -497,7 +497,208 @@ String SDSSensorDevice::readSensor() {
 	return s;
 }
 
+// Honeywell PMS commands
+const uint8_t start_HPM_cmd[] PROGMEM = { 0x68, 0x01, 0x01, 0x96 };
+const uint8_t stop_HPM_cmd[] PROGMEM = { 0x68, 0x01, 0x02, 0x95 };
+const uint8_t continuous_mode_HPM_cmd[] PROGMEM = { 0x68, 0x01, 0x40, 0x57 };
+const uint8_t HPM_cmd_len = 4;
+
+class HPMSensorDevice
+{
+private:
+	bool _isRunning = true;
+	int _pm10Sum = 0;
+	int _pm25Sum = 0;
+	int _valCount = 0;
+	int _pm10Max = 0;
+	int _pm10Min = 20000;
+	int _pm25Max = 0;
+	int _pm25Min = 20000;
+
+	const unsigned long SAMPLETIME_MS = 1000;
+	const unsigned long WARMUPTIME_MS = 15000;
+	const unsigned long READINGTIME_MS = 5000;
+
+public:
+	double last_value_HPM_P1 = -1.0;
+	double last_value_HPM_P2 = -1.0;
+
+	void init();
+	String readSensor();
+	void cmd(const uint8_t cmd);
+};
+
+void HPMSensorDevice::init()
+{
+	if (hpm_read) {
+		debug_out(F("Read HPM..."), DEBUG_MIN_INFO, 1);
+		cmd(HPM_START);
+		delay(100);
+		cmd(HPM_CONTINUOUS_MODE);
+		delay(100);
+		debug_out(F("Stopping HPM..."), DEBUG_MIN_INFO, 1);
+		cmd(HPM_STOP);
+	}
+}
+
+void HPMSensorDevice::cmd(const uint8_t cmd) {
+	uint8_t buf[HPM_cmd_len];
+	switch (cmd) {
+	case HPM_START:
+		memcpy_P(buf, start_HPM_cmd, HPM_cmd_len);
+		_isRunning = true;
+		break;
+	case HPM_STOP:
+		memcpy_P(buf, stop_HPM_cmd, HPM_cmd_len);
+		_isRunning = false;
+		break;
+	case HPM_CONTINUOUS_MODE:
+		memcpy_P(buf, continuous_mode_HPM_cmd, HPM_cmd_len);
+		_isRunning = true;
+		break;
+	}
+}
+
+String HPMSensorDevice::readSensor() {
+	String s;
+	char buffer;
+	int value;
+	int len = 0;
+	int pm10_serial = 0;
+	int pm25_serial = 0;
+	int checksum_is = 0;
+	int checksum_should = 0;
+	int checksum_ok = 0;
+
+	debug_out(String(FPSTR(DBG_TXT_START_READING)) + FPSTR(SENSORS_HPM), DEBUG_MED_INFO, 1);
+	if ((act_milli - starttime) < (sending_intervall_ms - (WARMUPTIME_MS + READINGTIME_MS))) {
+		if (_isRunning) {
+			cmd(HPM_STOP);
+		}
+	} else {
+		if (! _isRunning) {
+			cmd(HPM_START);
+		}
+
+		while (serialSDS.available() > 0) {
+			buffer = serialSDS.read();
+			debug_out(String(len) + " - " + String(buffer, DEC) + " - " + String(buffer, HEX) + " - " + int(buffer) + " .", DEBUG_MAX_INFO, 1);
+//			"aa" = 170, "ab" = 171, "c0" = 192
+			value = int(buffer);
+			switch (len) {
+			case (0):
+				if (value != 66) {
+					len = -1;
+				};
+				break;
+			case (1):
+				if (value != 77) {
+					len = -1;
+				};
+				break;
+			case (2):
+				checksum_is = value;
+				break;
+			case (6):
+				pm25_serial += ( value << 8);
+				break;
+			case (7):
+				pm25_serial += value;
+				break;
+			case (8):
+				pm10_serial = ( value << 8);
+				break;
+			case (9):
+				pm10_serial += value;
+				break;
+			case (30):
+				checksum_should = ( value << 8 );
+				break;
+			case (31):
+				checksum_should += value;
+				break;
+			}
+			if (len > 2 && len < 30) { checksum_is += value; }
+			len++;
+			if (len == 32) {
+				debug_out(F("Checksum is: "), DEBUG_MED_INFO, 0);
+				debug_out(String(checksum_is + 143), DEBUG_MED_INFO, 0);
+				debug_out(F(" - should: "), DEBUG_MED_INFO, 0);
+				debug_out(String(checksum_should), DEBUG_MED_INFO, 1);
+				if (checksum_should == (checksum_is + 143)) {
+					checksum_ok = 1;
+				} else {
+					len = 0;
+				};
+				if (checksum_ok == 1 && (long(act_milli - starttime) > (long(sending_intervall_ms) - long(READINGTIME_MS)))) {
+					if ((! isnan(pm10_serial)) && (! isnan(pm25_serial))) {
+						_pm10Sum += pm10_serial;
+						_pm25Sum += pm25_serial;
+						if (_pm10Min > pm10_serial) {
+							_pm10Min = pm10_serial;
+						}
+						if (_pm10Max < pm10_serial) {
+							_pm10Max = pm10_serial;
+						}
+						if (_pm25Min > pm25_serial) {
+							_pm25Min = pm25_serial;
+						}
+						if (_pm25Max < pm25_serial) {
+							_pm25Max = pm25_serial;
+						}
+						debug_out(F("PM2.5 (sec.): "), DEBUG_MED_INFO, 0);
+						debug_out(Float2String(double(pm25_serial)), DEBUG_MED_INFO, 1);
+						debug_out(F("PM10 (sec.) : "), DEBUG_MED_INFO, 0);
+						debug_out(Float2String(double(pm10_serial)), DEBUG_MED_INFO, 1);
+						_valCount++;
+					}
+					len = 0;
+					checksum_ok = 0;
+					pm10_serial = 0.0;
+					pm25_serial = 0.0;
+					checksum_is = 0;
+				}
+			}
+			yield();
+		}
+
+	}
+	if (send_now) {
+		last_value_HPM_P1 = -1;
+		last_value_HPM_P2 = -1;
+		if (_valCount > 2) {
+			_pm10Sum = _pm10Sum - _pm10Min - _pm10Max;
+			_pm25Sum = _pm25Sum - _pm25Min - _pm25Max;
+			_valCount = _valCount - 2;
+		}
+		if (_valCount > 0) {
+			last_value_HPM_P1 = double(_pm10Sum) / (_valCount * 1.0);
+			last_value_HPM_P2 = double(_pm25Sum) / (_valCount * 1.0);
+			debug_out("PM2.5: " + Float2String(last_value_HPM_P1), DEBUG_MIN_INFO, 1);
+			debug_out("PM10:  " + Float2String(last_value_HPM_P2), DEBUG_MIN_INFO, 1);
+			debug_out("-------", DEBUG_MIN_INFO, 1);
+			s += Value2Json("HPM_P1", Float2String(last_value_HPM_P1));
+			s += Value2Json("HPM_P2", Float2String(last_value_HPM_P2));
+		}
+		_pm10Sum = 0;
+		_pm25Sum = 0;
+		_valCount = 0;
+		_pm10Max = 0;
+		_pm10Min = 20000;
+		_pm25Max = 0;
+		_pm25Min = 20000;
+		if ((sending_intervall_ms > (WARMUPTIME_MS + READINGTIME_MS)) && (! will_check_for_update)) {
+			cmd(HPM_STOP);
+		}
+	}
+
+	debug_out(String(FPSTR(DBG_TXT_END_READING)) + FPSTR(SENSORS_HPM), DEBUG_MED_INFO, 1);
+
+	return s;
+}
+
 static SDSSensorDevice sdsSensorDevice;
+static HPMSensorDevice hpmSensorDevice;
 
 /*****************************************************************
  * Display definitions                                           *
@@ -575,7 +776,6 @@ unsigned long max_micro = 0;
 const unsigned long sampletime_ms = 30000;
 
 bool is_PMS_running = true;
-bool is_HPM_running = true;
 
 const unsigned long display_update_interval = 5000;
 unsigned long display_last_update;
@@ -591,7 +791,7 @@ unsigned long last_update_attempt;
 const unsigned long pause_between_update_attempts = 86400000;
 
 int pms_pm1_sum = 0;
-int pms_pm10_sum = 0;
+int pms_pm10Sum = 0;
 int pms_pm25_sum = 0;
 int pms_val_count = 0;
 int pms_pm1_max = 0;
@@ -601,21 +801,11 @@ int pms_pm10_min = 20000;
 int pms_pm25_max = 0;
 int pms_pm25_min = 20000;
 
-int hpm_pm10_sum = 0;
-int hpm_pm25_sum = 0;
-int hpm_val_count = 0;
-int hpm_pm10_max = 0;
-int hpm_pm10_min = 20000;
-int hpm_pm25_max = 0;
-int hpm_pm25_min = 20000;
-
 double last_value_PPD_P1 = -1.0;
 double last_value_PPD_P2 = -1.0;
 double last_value_PMS_P0 = -1.0;
 double last_value_PMS_P1 = -1.0;
 double last_value_PMS_P2 = -1.0;
-double last_value_HPM_P1 = -1.0;
-double last_value_HPM_P2 = -1.0;
 double last_value_DHT_T = -128.0;
 double last_value_DHT_H = -1.0;
 double last_value_HTU21D_T = -128.0;
@@ -794,27 +984,6 @@ void PMS_cmd(const uint8_t cmd) {
 		break;
 	}
 	serialSDS.write(buf, PMS_cmd_len);
-}
-
-/*****************************************************************
- * start Honeywell PMS sensor                                    *
- *****************************************************************/
-void HPM_cmd(const uint8_t cmd) {
-	uint8_t buf[HPM_cmd_len];
-	switch (cmd) {
-	case HPM_START:
-		memcpy_P(buf, start_HPM_cmd, HPM_cmd_len);
-		is_PMS_running = true;
-		break;
-	case HPM_STOP:
-		memcpy_P(buf, stop_HPM_cmd, HPM_cmd_len);
-		is_PMS_running = false;
-		break;
-	case HPM_CONTINUOUS_MODE:
-		memcpy_P(buf, continuous_mode_HPM_cmd, HPM_cmd_len);
-		is_PMS_running = true;
-		break;
-	}
 }
 
 /*****************************************************************
@@ -1791,8 +1960,8 @@ void webserver_values() {
 		}
 		if (hpm_read) {
 			page_content += empty_row;
-			page_content += table_row_from_value(FPSTR(SENSORS_HPM), "PM2.5", check_display_value(last_value_HPM_P2, -1, 1, 0), unit_PM);
-			page_content += table_row_from_value(FPSTR(SENSORS_HPM), "PM10", check_display_value(last_value_HPM_P1, -1, 1, 0), unit_PM);
+			page_content += table_row_from_value(FPSTR(SENSORS_HPM), "PM2.5", check_display_value(hpmSensorDevice.last_value_HPM_P2, -1, 1, 0), unit_PM);
+			page_content += table_row_from_value(FPSTR(SENSORS_HPM), "PM10", check_display_value(hpmSensorDevice.last_value_HPM_P1, -1, 1, 0), unit_PM);
 		}
 		if (dht_read) {
 			page_content += empty_row;
@@ -2766,7 +2935,7 @@ String sensorPMS(int msg_len) {
 				if (checksum_ok == 1 && ((act_milli - starttime) > (sending_intervall_ms - sdsSensorDevice.READINGTIME_MS))) {
 					if ((! isnan(pm1_serial)) && (! isnan(pm10_serial)) && (! isnan(pm25_serial))) {
 						pms_pm1_sum += pm1_serial;
-						pms_pm10_sum += pm10_serial;
+						pms_pm10Sum += pm10_serial;
 						pms_pm25_sum += pm25_serial;
 						if (pms_pm1_min > pm10_serial) {
 							pms_pm1_min = pm1_serial;
@@ -2812,13 +2981,13 @@ String sensorPMS(int msg_len) {
 		last_value_PMS_P2 = -1;
 		if (pms_val_count > 2) {
 			pms_pm1_sum = pms_pm1_sum - pms_pm1_min - pms_pm1_max;
-			pms_pm10_sum = pms_pm10_sum - pms_pm10_min - pms_pm10_max;
+			pms_pm10Sum = pms_pm10Sum - pms_pm10_min - pms_pm10_max;
 			pms_pm25_sum = pms_pm25_sum - pms_pm25_min - pms_pm25_max;
 			pms_val_count = pms_val_count - 2;
 		}
 		if (pms_val_count > 0) {
 			last_value_PMS_P0 = double(pms_pm1_sum) / (pms_val_count * 1.0);
-			last_value_PMS_P1 = double(pms_pm10_sum) / (pms_val_count * 1.0);
+			last_value_PMS_P1 = double(pms_pm10Sum) / (pms_val_count * 1.0);
 			last_value_PMS_P2 = double(pms_pm25_sum) / (pms_val_count * 1.0);
 			debug_out("PM1:   " + Float2String(last_value_PMS_P0), DEBUG_MIN_INFO, 1);
 			debug_out("PM2.5: " + Float2String(last_value_PMS_P2), DEBUG_MIN_INFO, 1);
@@ -2829,7 +2998,7 @@ String sensorPMS(int msg_len) {
 			s += Value2Json("PMS_P2", Float2String(last_value_PMS_P2));
 		}
 		pms_pm1_sum = 0;
-		pms_pm10_sum = 0;
+		pms_pm10Sum = 0;
 		pms_pm25_sum = 0;
 		pms_val_count = 0;
 		pms_pm1_max = 0;
@@ -2844,147 +3013,6 @@ String sensorPMS(int msg_len) {
 	}
 
 	debug_out(String(FPSTR(DBG_TXT_END_READING)) + FPSTR(SENSORS_PMSx003), DEBUG_MED_INFO, 1);
-
-	return s;
-}
-
-/*****************************************************************
- * read Honeywell PM sensor sensor values                        *
- *****************************************************************/
-String sensorHPM() {
-	String s = "";
-	char buffer;
-	int value;
-	int len = 0;
-	int pm10_serial = 0;
-	int pm25_serial = 0;
-	int checksum_is = 0;
-	int checksum_should = 0;
-	int checksum_ok = 0;
-
-	debug_out(String(FPSTR(DBG_TXT_START_READING)) + FPSTR(SENSORS_HPM), DEBUG_MED_INFO, 1);
-	if ((act_milli - starttime) < (sending_intervall_ms - (sdsSensorDevice.WARMUPTIME_MS + sdsSensorDevice.READINGTIME_MS))) {
-		if (is_HPM_running) {
-			HPM_cmd(HPM_STOP);
-		}
-	} else {
-		if (! is_HPM_running) {
-			HPM_cmd(HPM_START);
-		}
-
-		while (serialSDS.available() > 0) {
-			buffer = serialSDS.read();
-			debug_out(String(len) + " - " + String(buffer, DEC) + " - " + String(buffer, HEX) + " - " + int(buffer) + " .", DEBUG_MAX_INFO, 1);
-//			"aa" = 170, "ab" = 171, "c0" = 192
-			value = int(buffer);
-			switch (len) {
-			case (0):
-				if (value != 66) {
-					len = -1;
-				};
-				break;
-			case (1):
-				if (value != 77) {
-					len = -1;
-				};
-				break;
-			case (2):
-				checksum_is = value;
-				break;
-			case (6):
-				pm25_serial += ( value << 8);
-				break;
-			case (7):
-				pm25_serial += value;
-				break;
-			case (8):
-				pm10_serial = ( value << 8);
-				break;
-			case (9):
-				pm10_serial += value;
-				break;
-			case (30):
-				checksum_should = ( value << 8 );
-				break;
-			case (31):
-				checksum_should += value;
-				break;
-			}
-			if (len > 2 && len < 30) { checksum_is += value; }
-			len++;
-			if (len == 32) {
-				debug_out(F("Checksum is: "), DEBUG_MED_INFO, 0);
-				debug_out(String(checksum_is + 143), DEBUG_MED_INFO, 0);
-				debug_out(F(" - should: "), DEBUG_MED_INFO, 0);
-				debug_out(String(checksum_should), DEBUG_MED_INFO, 1);
-				if (checksum_should == (checksum_is + 143)) {
-					checksum_ok = 1;
-				} else {
-					len = 0;
-				};
-				if (checksum_ok == 1 && (long(act_milli - starttime) > (long(sending_intervall_ms) - long(sdsSensorDevice.READINGTIME_MS)))) {
-					if ((! isnan(pm10_serial)) && (! isnan(pm25_serial))) {
-						hpm_pm10_sum += pm10_serial;
-						hpm_pm25_sum += pm25_serial;
-						if (hpm_pm10_min > pm10_serial) {
-							hpm_pm10_min = pm10_serial;
-						}
-						if (hpm_pm10_max < pm10_serial) {
-							hpm_pm10_max = pm10_serial;
-						}
-						if (hpm_pm25_min > pm25_serial) {
-							hpm_pm25_min = pm25_serial;
-						}
-						if (hpm_pm25_max < pm25_serial) {
-							hpm_pm25_max = pm25_serial;
-						}
-						debug_out(F("PM2.5 (sec.): "), DEBUG_MED_INFO, 0);
-						debug_out(Float2String(double(pm25_serial)), DEBUG_MED_INFO, 1);
-						debug_out(F("PM10 (sec.) : "), DEBUG_MED_INFO, 0);
-						debug_out(Float2String(double(pm10_serial)), DEBUG_MED_INFO, 1);
-						hpm_val_count++;
-					}
-					len = 0;
-					checksum_ok = 0;
-					pm10_serial = 0.0;
-					pm25_serial = 0.0;
-					checksum_is = 0;
-				}
-			}
-			yield();
-		}
-
-	}
-	if (send_now) {
-		last_value_HPM_P1 = -1;
-		last_value_HPM_P2 = -1;
-		if (hpm_val_count > 2) {
-			hpm_pm10_sum = hpm_pm10_sum - hpm_pm10_min - hpm_pm10_max;
-			hpm_pm25_sum = hpm_pm25_sum - hpm_pm25_min - hpm_pm25_max;
-			hpm_val_count = hpm_val_count - 2;
-		}
-		if (hpm_val_count > 0) {
-			last_value_HPM_P1 = double(hpm_pm10_sum) / (hpm_val_count * 1.0);
-			last_value_HPM_P2 = double(hpm_pm25_sum) / (hpm_val_count * 1.0);
-			debug_out("PM2.5: " + Float2String(last_value_HPM_P1), DEBUG_MIN_INFO, 1);
-			debug_out("PM10:  " + Float2String(last_value_HPM_P2), DEBUG_MIN_INFO, 1);
-			debug_out("-------", DEBUG_MIN_INFO, 1);
-			s += Value2Json("HPM_P1", Float2String(last_value_HPM_P1));
-			s += Value2Json("HPM_P2", Float2String(last_value_HPM_P2));
-		}
-		hpm_pm10_sum = 0;
-		hpm_pm25_sum = 0;
-		hpm_val_count = 0;
-		hpm_pm10_max = 0;
-		hpm_pm10_min = 20000;
-		hpm_pm25_max = 0;
-		hpm_pm25_min = 20000;
-		if ((sending_intervall_ms > (sdsSensorDevice.WARMUPTIME_MS + sdsSensorDevice.READINGTIME_MS)) && (! will_check_for_update)) {
-			HPM_cmd(HPM_STOP);
-		}
-	}
-
-	debug_out(String(FPSTR(DBG_TXT_END_READING)) + FPSTR(SENSORS_HPM), DEBUG_MED_INFO, 1);
 
 	return s;
 }
@@ -3254,9 +3282,9 @@ void display_values() {
 		pm25_sensor = FPSTR(SENSORS_PMSx003);
 	}
 	if (hpm_read) {
-		pm10_value = last_value_HPM_P1;
+		pm10_value = hpmSensorDevice.last_value_HPM_P1;
 		pm10_sensor = FPSTR(SENSORS_HPM);
-		pm25_value = last_value_HPM_P2;
+		pm25_value = hpmSensorDevice.last_value_HPM_P2;
 		pm25_sensor = FPSTR(SENSORS_HPM);
 	}
 	if (sdsSensorDevice.sds_read) {
@@ -3569,15 +3597,9 @@ void setup() {
 	if (pms32_read) {
 		debug_out(F("Read PMS(1,5,6,7)003..."), DEBUG_MIN_INFO, 1);
 	}
-	if (hpm_read) {
-		debug_out(F("Read HPM..."), DEBUG_MIN_INFO, 1);
-		HPM_cmd(HPM_START);
-		delay(100);
-		HPM_cmd(HPM_CONTINUOUS_MODE);
-		delay(100);
-		debug_out(F("Stopping HPM..."), DEBUG_MIN_INFO, 1);
-		HPM_cmd(HPM_STOP);
-	}
+
+	hpmSensorDevice.init();
+
 	if (dht_read) {
 		dht.begin();                                        // Start DHT
 		debug_out(F("Read DHT..."), DEBUG_MIN_INFO, 1);
@@ -3749,7 +3771,7 @@ void loop() {
 
 		if (hpm_read) {
 			debug_out(F("Call sensorHPM"), DEBUG_MAX_INFO, 1);
-			result_HPM = sensorHPM();
+			result_HPM = hpmSensorDevice.readSensor();
 			sdsSensorDevice.starttime_SDS = act_milli;
 		}
 	}

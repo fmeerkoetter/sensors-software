@@ -28,12 +28,6 @@ const uint8_t stop_PMS_cmd[] PROGMEM = { 0x42, 0x4D, 0xE4, 0x00, 0x00, 0x01, 0x7
 const uint8_t continuous_mode_PMS_cmd[] PROGMEM = { 0x42, 0x4D, 0xE1, 0x00, 0x01, 0x01, 0x71 };
 const uint8_t PMS_cmd_len = 7;
 
-// Honeywell PMS commands
-const uint8_t start_HPM_cmd[] PROGMEM = { 0x68, 0x01, 0x01, 0x96 };
-const uint8_t stop_HPM_cmd[] PROGMEM = { 0x68, 0x01, 0x02, 0x95 };
-const uint8_t continuous_mode_HPM_cmd[] PROGMEM = { 0x68, 0x01, 0x40, 0x57 };
-const uint8_t HPM_cmd_len = 4;
-
 const char WEB_PAGE_HEADER[] PROGMEM = "<html>\
 <head>\
 <title>{t}</title>\
