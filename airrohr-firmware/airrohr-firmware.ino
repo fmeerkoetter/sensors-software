@@ -282,6 +282,15 @@ static String Float2String(const double value, uint8_t digits) {
 	return s;
 }
 
+class DustSensorBaseDevice
+{
+public:
+	static const unsigned long SAMPLETIME_MS = 1000;
+protected:
+	static const unsigned long WARMUPTIME_MS = 15000;
+	static const unsigned long READINGTIME_MS = 5000;
+};
+
 static SoftwareSerial serialSDS = {PM_SERIAL_RX, PM_SERIAL_TX, false, 128};
 
 const uint8_t start_SDS_cmd[] PROGMEM = {
@@ -302,7 +311,7 @@ const uint8_t version_SDS_cmd[] PROGMEM = {
 };
 const uint8_t SDS_cmd_len = 19;
 
-class SDSSensorDevice {
+class SDSSensorDevice : public DustSensorBaseDevice {
 private:
 	bool _isRunning = true;
 	int _pm10Sum = 0;
@@ -315,10 +324,6 @@ private:
 
 public:
 	unsigned long starttime_SDS;
-
-	const unsigned long SAMPLETIME_MS = 1000;
-	const unsigned long WARMUPTIME_MS = 15000;
-	const unsigned long READINGTIME_MS = 5000;
 
 	bool sds_read = 1;
 
@@ -509,7 +514,7 @@ const uint8_t continuous_mode_HPM_cmd[] PROGMEM = {
 };
 const uint8_t HPM_cmd_len = 4;
 
-class HPMSensorDevice
+class HPMSensorDevice : public DustSensorBaseDevice
 {
 private:
 	bool _isRunning = true;
@@ -520,10 +525,6 @@ private:
 	int _pm10Min = 20000;
 	int _pm25Max = 0;
 	int _pm25Min = 20000;
-
-	const unsigned long SAMPLETIME_MS = 1000;
-	const unsigned long WARMUPTIME_MS = 15000;
-	const unsigned long READINGTIME_MS = 5000;
 
 public:
 	double last_value_HPM_P1 = -1.0;
@@ -715,7 +716,7 @@ const uint8_t continuous_mode_PMS_cmd[] PROGMEM = {
 };
 const uint8_t PMS_cmd_len = 7;
 
-class PMSSensorDevice
+class PMSSensorDevice : public DustSensorBaseDevice
 {
 private:
 	int pms_pm1_sum = 0;
@@ -729,10 +730,6 @@ private:
 	int pms_pm25_max = 0;
 	int pms_pm25_min = 20000;
 	bool is_PMS_running = true;
-
-	const unsigned long SAMPLETIME_MS = 1000;
-	const unsigned long WARMUPTIME_MS = 15000;
-	const unsigned long READINGTIME_MS = 5000;
 
 public:
 	double last_value_PMS_P0 = -1.0;
@@ -869,7 +866,7 @@ String PMSSensorDevice::readSensor(int msg_len) {
 				} else {
 					len = 0;
 				};
-				if (checksum_ok == 1 && ((act_milli - starttime) > (sending_intervall_ms - sdsSensorDevice.READINGTIME_MS))) {
+				if (checksum_ok == 1 && ((act_milli - starttime) > (sending_intervall_ms - READINGTIME_MS))) {
 					if ((! isnan(pm1_serial)) && (! isnan(pm10_serial)) && (! isnan(pm25_serial))) {
 						pms_pm1_sum += pm1_serial;
 						pms_pm10Sum += pm10_serial;
@@ -944,7 +941,7 @@ String PMSSensorDevice::readSensor(int msg_len) {
 		pms_pm10_min = 20000;
 		pms_pm25_max = 0;
 		pms_pm25_min = 20000;
-		if ((sending_intervall_ms > (sdsSensorDevice.WARMUPTIME_MS + sdsSensorDevice.READINGTIME_MS)) && (! will_check_for_update)) {
+		if ((sending_intervall_ms > (WARMUPTIME_MS + READINGTIME_MS)) && (! will_check_for_update)) {
 			PMS_cmd(PMS_STOP);
 		}
 	}
