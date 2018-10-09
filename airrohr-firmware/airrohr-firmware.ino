@@ -453,7 +453,7 @@ public:
 	}
 };
 
-SDSSensorDevice sdsSensorDevice;
+static SDSSensorDevice sdsSensorDevice;
 
 /*****************************************************************
  * Display definitions                                           *
