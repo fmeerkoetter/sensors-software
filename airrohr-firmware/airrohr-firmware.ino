@@ -2292,8 +2292,6 @@ void send_csv(const String& data) {
 String sensorDHT() {
 	String s = "";
 	int i = 0;
-	double h;
-	double t;
 
 	debug_out(String(FPSTR(DBG_TXT_START_READING)) + "DHT11/22", DEBUG_MED_INFO, 1);
 
@@ -2303,8 +2301,8 @@ String sensorDHT() {
 	last_value_DHT_H = -1;
 
 	while ((i++ < 5) && (s == "")) {
-		h = dht.readHumidity(); //Read Humidity
-		t = dht.readTemperature(); //Read Temperature
+		double h = dht.readHumidity(); //Read Humidity
+		double t = dht.readTemperature(); //Read Temperature
 		if (isnan(t) || isnan(h)) {
 			delay(100);
 			h = dht.readHumidity(); //Read Humidity
@@ -2335,16 +2333,14 @@ String sensorDHT() {
  *****************************************************************/
 String sensorHTU21D() {
 	String s = "";
-	double t;
-	double h;
 
 	debug_out(String(FPSTR(DBG_TXT_START_READING)) + FPSTR(SENSORS_HTU21D), DEBUG_MED_INFO, 1);
 
 	last_value_HTU21D_T = -128;
 	last_value_HTU21D_H = -1;
 
-	t = htu21d.readTemperature();
-	h = htu21d.readHumidity();
+	const double t = htu21d.readTemperature();
+	const double h = htu21d.readHumidity();
 	if (isnan(t) || isnan(h)) {
 		debug_out(F("HTU21D couldn't be read"), DEBUG_ERROR, 1);
 	} else {
@@ -2369,13 +2365,11 @@ String sensorHTU21D() {
  *****************************************************************/
 String sensorBMP() {
 	String s = "";
-	int p;
-	double t;
 
 	debug_out(String(FPSTR(DBG_TXT_START_READING)) + FPSTR(SENSORS_BMP180), DEBUG_MED_INFO, 1);
 
-	p = bmp.readPressure();
-	t = bmp.readTemperature();
+	const int p = bmp.readPressure();
+	const double t = bmp.readTemperature();
 	last_value_BMP_T = -128;
 	last_value_BMP_P = -1;
 	if (isnan(p) || isnan(t)) {
@@ -2402,13 +2396,11 @@ String sensorBMP() {
  *****************************************************************/
 String sensorBMP280() {
 	String s = "";
-	int p;
-	double t;
 
 	debug_out(String(FPSTR(DBG_TXT_START_READING)) + FPSTR(SENSORS_BMP280), DEBUG_MED_INFO, 1);
 
-	p = bmp280.readPressure();
-	t = bmp280.readTemperature();
+	const int p = bmp280.readPressure();
+	const double t = bmp280.readTemperature();
 	last_value_BMP280_T = -128;
 	last_value_BMP280_P = -1;
 	if (isnan(p) || isnan(t)) {
@@ -2435,17 +2427,14 @@ String sensorBMP280() {
  *****************************************************************/
 String sensorBME280() {
 	String s = "";
-	double t;
-	double h;
-	double p;
 
 	debug_out(String(FPSTR(DBG_TXT_START_READING)) + FPSTR(SENSORS_BME280), DEBUG_MED_INFO, 1);
 
 	bme280.takeForcedMeasurement();
 
-	t = bme280.readTemperature();
-	h = bme280.readHumidity();
-	p = bme280.readPressure();
+	const double t = bme280.readTemperature();
+	const double h = bme280.readHumidity();
+	const double p = bme280.readPressure();
 	last_value_BME280_T = -128;
 	last_value_BME280_H = -1;
 	last_value_BME280_P = -1;
@@ -2513,8 +2502,6 @@ String sensorDS18B20() {
  *****************************************************************/
 String sensorSDS() {
 	String s = "";
-	char buffer;
-	int value;
 	int len = 0;
 	int pm10_serial = 0;
 	int pm25_serial = 0;
@@ -2532,10 +2519,10 @@ String sensorSDS() {
 		}
 
 		while (serialSDS.available() > 0) {
-			buffer = serialSDS.read();
+			char buffer = serialSDS.read();
 			debug_out(String(len) + " - " + String(buffer, DEC) + " - " + String(buffer, HEX) + " - " + int(buffer) + " .", DEBUG_MAX_INFO, 1);
 //			"aa" = 170, "ab" = 171, "c0" = 192
-			value = int(buffer);
+			int value = int(buffer);
 			switch (len) {
 			case (0):
 				if (value != 170) {
@@ -2650,8 +2637,6 @@ String sensorSDS() {
  *****************************************************************/
 String sensorPMS(int msg_len) {
 	String s = "";
-	char buffer;
-	int value;
 	int len = 0;
 	int pm1_serial = 0;
 	int pm10_serial = 0;
@@ -2671,10 +2656,10 @@ String sensorPMS(int msg_len) {
 		}
 
 		while (serialSDS.available() > 0) {
-			buffer = serialSDS.read();
+			char buffer = serialSDS.read();
 			debug_out(String(len) + " - " + String(buffer, DEC) + " - " + String(buffer, HEX) + " - " + int(buffer) + " .", DEBUG_MAX_INFO, 1);
 //			"aa" = 170, "ab" = 171, "c0" = 192
-			value = int(buffer);
+			int value = int(buffer);
 			switch (len) {
 			case (0):
 				if (value != 66) {
@@ -2826,8 +2811,6 @@ String sensorPMS(int msg_len) {
  *****************************************************************/
 String sensorHPM() {
 	String s = "";
-	char buffer;
-	int value;
 	int len = 0;
 	int pm10_serial = 0;
 	int pm25_serial = 0;
@@ -2846,10 +2829,10 @@ String sensorHPM() {
 		}
 
 		while (serialSDS.available() > 0) {
-			buffer = serialSDS.read();
+			char buffer = serialSDS.read();
 			debug_out(String(len) + " - " + String(buffer, DEC) + " - " + String(buffer, HEX) + " - " + int(buffer) + " .", DEBUG_MAX_INFO, 1);
 //			"aa" = 170, "ab" = 171, "c0" = 192
-			value = int(buffer);
+			int value = int(buffer);
 			switch (len) {
 			case (0):
 				if (value != 66) {
