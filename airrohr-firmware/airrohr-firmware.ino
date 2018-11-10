@@ -462,7 +462,7 @@ const char data_first_part[] PROGMEM = "{\"software_version\": \"{v}\", \"sensor
 /*****************************************************************
  * Debug output                                                  *
  *****************************************************************/
-void debug_out(const String& text, const int level, const bool linebreak) {
+static void debug_out(const String& text, const int level, const bool linebreak) {
 	if (level <= cfg::debug) {
 		if (linebreak) {
 			Serial.println(text);
@@ -475,7 +475,7 @@ void debug_out(const String& text, const int level, const bool linebreak) {
 /*****************************************************************
  * display values                                                *
  *****************************************************************/
-void display_debug(const String& text1, const String& text2) {
+static void display_debug(const String& text1, const String& text2) {
 	debug_out(F("output debug text to displays..."), DEBUG_MIN_INFO, 1);
 	debug_out(text1 + "\n" + text2, DEBUG_MAX_INFO, 1);
 	if (cfg::has_display) {
@@ -520,7 +520,7 @@ void display_debug(const String& text1, const String& text2) {
 /*****************************************************************
  * IPAddress to String                                           *
  *****************************************************************/
-String IPAddress2String(const IPAddress& ipaddress) {
+static String IPAddress2String(const IPAddress& ipaddress) {
 	char myIpString[24];
 	sprintf(myIpString, "%d.%d.%d.%d", ipaddress[0], ipaddress[1], ipaddress[2], ipaddress[3]);
 	return String(myIpString);
@@ -529,7 +529,7 @@ String IPAddress2String(const IPAddress& ipaddress) {
 /*****************************************************************
  * check display values, return '-' if undefined                 *
  *****************************************************************/
-String check_display_value(double value, double undef, uint8_t len, uint8_t str_len) {
+static String check_display_value(double value, double undef, uint8_t len, uint8_t str_len) {
 	String s = (value != undef ? Float2String(value, len) : "-");
 	while (s.length() < str_len) {
 		s = " " + s;
@@ -541,11 +541,11 @@ String check_display_value(double value, double undef, uint8_t len, uint8_t str_
  * convert float to string with a                                *
  * precision of two (or a given number of) decimal places        *
  *****************************************************************/
-String Float2String(const double value) {
+static String Float2String(const double value) {
 	return Float2String(value, 2);
 }
 
-String Float2String(const double value, uint8_t digits) {
+static String Float2String(const double value, uint8_t digits) {
 	// Convert a float to String with two decimals.
 	char temp[15];
 
@@ -558,7 +558,7 @@ String Float2String(const double value, uint8_t digits) {
 /*****************************************************************
  * convert value to json string                                  *
  *****************************************************************/
-String Value2Json(const String& type, const String& value) {
+static String Value2Json(const String& type, const String& value) {
 	String s = F("{\"value_type\":\"{t}\",\"value\":\"{v}\"},");
 	s.replace("{t}", type);
 	s.replace("{v}", value);
@@ -568,7 +568,7 @@ String Value2Json(const String& type, const String& value) {
 /*****************************************************************
  * convert string value to json string                           *
  *****************************************************************/
-String Var2Json(const String& name, const String& value) {
+static String Var2Json(const String& name, const String& value) {
 	String s = F("\"{n}\":\"{v}\",");
 	String tmp = value;
 	tmp.replace("\\", "\\\\"); tmp.replace("\"", "\\\"");
@@ -580,7 +580,7 @@ String Var2Json(const String& name, const String& value) {
 /*****************************************************************
  * convert boolean value to json string                          *
  *****************************************************************/
-String Var2Json(const String& name, const bool value) {
+static String Var2Json(const String& name, const bool value) {
 	String s = F("\"{n}\":\"{v}\",");
 	s.replace("{n}", name);
 	s.replace("{v}", (value ? "true" : "false"));
@@ -590,7 +590,7 @@ String Var2Json(const String& name, const bool value) {
 /*****************************************************************
  * convert boolean value to json string                          *
  *****************************************************************/
-String Var2Json(const String& name, const int value) {
+static String Var2Json(const String& name, const int value) {
 	String s = F("\"{n}\":\"{v}\",");
 	s.replace("{n}", name);
 	s.replace("{v}", String(value));
@@ -705,7 +705,7 @@ static bool HPM_cmd(PmSensorCmd cmd) {
 /*****************************************************************
  * read SDS011 sensor serial and firmware date                   *
  *****************************************************************/
-String SDS_version_date() {
+static String SDS_version_date() {
 	String s = "";
 	char buffer;
 	int value;
@@ -811,7 +811,7 @@ String SDS_version_date() {
 /*****************************************************************
  * disable unneeded NMEA sentences, TinyGPS++ needs GGA, RMC     *
  *****************************************************************/
-void disable_unneeded_nmea() {
+static void disable_unneeded_nmea() {
 	serialGPS.println(F("$PUBX,40,GLL,0,0,0,0*5C"));       // Geographic position, latitude / longitude
 //	serialGPS.println(F("$PUBX,40,GGA,0,0,0,0*5A"));       // Global Positioning System Fix Data
 	serialGPS.println(F("$PUBX,40,GSA,0,0,0,0*4E"));       // GPS DOP and active satellites
@@ -823,7 +823,7 @@ void disable_unneeded_nmea() {
 /*****************************************************************
  * copy config from ext_def                                      *
  *****************************************************************/
-void copyExtDef() {
+static void copyExtDef() {
 	using namespace cfg;
 
 #define strcpyDef(var, def) if (def != NULL) { strcpy(var, def); }
@@ -893,7 +893,7 @@ void copyExtDef() {
 /*****************************************************************
  * read config from spiffs                                       *
  *****************************************************************/
-void readConfig() {
+static void readConfig() {
 	using namespace cfg;
 	String json_string = "";
 	debug_out(F("mounting FS..."), DEBUG_MIN_INFO, 1);
@@ -1010,7 +1010,7 @@ void readConfig() {
 /*****************************************************************
  * write config to spiffs                                        *
  *****************************************************************/
-void writeConfig() {
+static void writeConfig() {
 	using namespace cfg;
 	String json_string = "{";
 	debug_out(F("saving config..."), DEBUG_MIN_INFO, 1);
@@ -1092,7 +1092,7 @@ void writeConfig() {
 /*****************************************************************
  * Base64 encode user:password                                   *
  *****************************************************************/
-void create_basic_auth_strings() {
+static void create_basic_auth_strings() {
 	basic_auth_custom = "";
 	if (cfg::user_custom[0] != '\0' || cfg::pwd_custom[0] != '\0') {
 		basic_auth_custom = base64::encode(String(cfg::user_custom) + ":" + String(cfg::pwd_custom));
@@ -1107,7 +1107,7 @@ void create_basic_auth_strings() {
  * html helper functions                                         *
  *****************************************************************/
 
-String make_header(const String& title) {
+static String make_header(const String& title) {
 	String s = FPSTR(WEB_PAGE_HEADER);
 	s.replace("{tt}", FPSTR(INTL_PM_SENSOR));
 	s.replace("{h}", FPSTR(INTL_HOME));
@@ -1124,13 +1124,13 @@ String make_header(const String& title) {
 	return s;
 }
 
-String make_footer() {
+static String make_footer() {
 	String s = FPSTR(WEB_PAGE_FOOTER);
 	s.replace("{t}", FPSTR(INTL_BACK_TO_HOME));
 	return s;
 }
 
-String form_input(const String& name, const String& info, const String& value, const int length) {
+static String form_input(const String& name, const String& info, const String& value, const int length) {
 	String s = F(	"<tr>"
 					"<td>{i} </td>"
 					"<td style='width:90%;'>"
@@ -1146,7 +1146,7 @@ String form_input(const String& name, const String& info, const String& value, c
 	return s;
 }
 
-String form_password(const String& name, const String& info, const String& value, const int length) {
+static String form_password(const String& name, const String& info, const String& value, const int length) {
 	String s = F(	"<tr>"
 					"<td>{i} </td>"
 					"<td style='width:90%;'>"
@@ -1164,7 +1164,7 @@ String form_password(const String& name, const String& info, const String& value
 	return s;
 }
 
-String form_checkbox(const String& name, const String& info, const bool checked, const bool linebreak = true) {
+static String form_checkbox(const String& name, const String& info, const bool checked, const bool linebreak = true) {
 	String s = F("<label for='{n}'><input type='checkbox' name='{n}' value='1' id='{n}' {c}/> {i}</label><br/>");
 	if (checked) {
 		s.replace("{c}", F(" checked='checked'"));
@@ -1179,11 +1179,11 @@ String form_checkbox(const String& name, const String& info, const bool checked,
 	return s;
 }
 
-String form_checkbox_sensor(const String& name, const String& info, const bool checked) {
+static String form_checkbox_sensor(const String& name, const String& info, const bool checked) {
 	return form_checkbox(name, add_sensor_type(info), checked);
 }
 
-String form_submit(const String& value) {
+static String form_submit(const String& value) {
 	String s = F(	"<tr>"
 					"<td>&nbsp;</td>"
 					"<td>"
@@ -1194,7 +1194,7 @@ String form_submit(const String& value) {
 	return s;
 }
 
-String form_select_lang() {
+static String form_select_lang() {
 	String s_select = F(" selected='selected'");
 	String s = F(	"<tr>"
 					"<td>{t}</td>"
@@ -1247,14 +1247,14 @@ static String tmpl(const String& patt, const String& value1, const String& value
 	return s;
 }
 
-String line_from_value(const String& name, const String& value) {
+static String line_from_value(const String& name, const String& value) {
 	String s = F("<br/>{n}: {v}");
 	s.replace("{n}", name);
 	s.replace("{v}", value);
 	return s;
 }
 
-String table_row_from_value(const String& sensor, const String& param, const String& value, const String& unit) {
+static String table_row_from_value(const String& sensor, const String& param, const String& value, const String& unit) {
 	String s = F(	"<tr>"
 					"<td>{s}</td>"
 					"<td>{p}</td>"
@@ -1277,7 +1277,7 @@ static int32_t calcWiFiSignalQuality(int32_t rssi) {
 	return (rssi + 100) * 2;
 }
 
-String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi) {
+static String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int32_t rssi) {
 	String s = F(	"<tr>"
 					"<td>"
 					"<a href='#wlanpwd' onclick='setSSID(this)' class='wifi'>{n}</a>&nbsp;{e}"
@@ -1292,7 +1292,7 @@ String wlan_ssid_to_table_row(const String& ssid, const String& encryption, int3
 	return s;
 }
 
-String warning_first_cycle() {
+static String warning_first_cycle() {
 	String s = FPSTR(INTL_TIME_TO_FIRST_MEASUREMENT);
 	unsigned long time_to_first = sending_intervall_ms - (act_milli - starttime);
 	if (time_to_first > sending_intervall_ms) {
@@ -1302,7 +1302,7 @@ String warning_first_cycle() {
 	return s;
 }
 
-String age_last_values() {
+static String age_last_values() {
 	String s = "<b>";
 	unsigned long time_since_last = act_milli - starttime;
 	if (time_since_last > sending_intervall_ms) {
@@ -1314,7 +1314,7 @@ String age_last_values() {
 	return s;
 }
 
-String add_sensor_type(const String& sensor_text) {
+static String add_sensor_type(const String& sensor_text) {
 	String s = sensor_text;
 	s.replace("{pm}", FPSTR(INTL_PARTICULATE_MATTER));
 	s.replace("{t}", FPSTR(INTL_TEMPERATURE));
@@ -1347,7 +1347,7 @@ static void sendHttpRedirect(ESP8266WebServer &httpServer) {
 /*****************************************************************
  * Webserver root: show all options                              *
  *****************************************************************/
-void webserver_root() {
+static void webserver_root() {
 	if (WiFi.status() != WL_CONNECTED) {
 		sendHttpRedirect(server);
 	} else {
@@ -1375,7 +1375,7 @@ static int constexpr constexprstrlen(const char* str) {
 /*****************************************************************
  * Webserver config: show config page                            *
  *****************************************************************/
-void webserver_config() {
+static void webserver_config() {
 	if (!webserver_request_auth())
 	{ return; }
 
@@ -1671,7 +1671,7 @@ void webserver_config() {
 /*****************************************************************
  * Webserver wifi: show available wifi networks                  *
  *****************************************************************/
-void webserver_wifi() {
+static void webserver_wifi() {
 	debug_out(F("wifi networks found: "), DEBUG_MIN_INFO, 0);
 	debug_out(String(count_wifiInfo), DEBUG_MIN_INFO, 1);
 	String page_content = "";
@@ -1728,7 +1728,7 @@ void webserver_wifi() {
 /*****************************************************************
  * Webserver root: show latest values                            *
  *****************************************************************/
-void webserver_values() {
+static void webserver_values() {
 	if (WiFi.status() != WL_CONNECTED) {
 		sendHttpRedirect(server);
 	} else {
@@ -1829,7 +1829,7 @@ void webserver_values() {
 /*****************************************************************
  * Webserver set debug level                                     *
  *****************************************************************/
-void webserver_debug_level() {
+static void webserver_debug_level() {
 	if (!webserver_request_auth())
 	{ return; }
 
@@ -1875,7 +1875,7 @@ void webserver_debug_level() {
 /*****************************************************************
  * Webserver remove config                                       *
  *****************************************************************/
-void webserver_removeConfig() {
+static void webserver_removeConfig() {
 	if (!webserver_request_auth())
 	{ return; }
 
@@ -1909,7 +1909,7 @@ void webserver_removeConfig() {
 /*****************************************************************
  * Webserver reset NodeMCU                                       *
  *****************************************************************/
-void webserver_reset() {
+static void webserver_reset() {
 	if (!webserver_request_auth())
 	{ return; }
 
@@ -1932,7 +1932,7 @@ void webserver_reset() {
 /*****************************************************************
  * Webserver data.json                                           *
  *****************************************************************/
-void webserver_data_json() {
+static void webserver_data_json() {
 	String s1 = "";
 	unsigned long age = 0;
 	debug_out(F("output data json..."), DEBUG_MIN_INFO, 1);
@@ -1968,7 +1968,7 @@ void webserver_data_json() {
 /*****************************************************************
  * Webserver prometheus metrics endpoint                         *
  *****************************************************************/
-void webserver_prometheus_endpoint() {
+static void webserver_prometheus_endpoint() {
 	debug_out(F("output prometheus endpoint..."), DEBUG_MIN_INFO, 1);
 	String data_4_prometheus = F("software_version{version=\"{ver}\",{id}} 1\nuptime_ms{{id}} {up}\nsending_intervall_ms{{id}} {si}\nnumber_of_measurements{{id}} {cs}\n");
 	String id = F("node=\"esp8266-");
@@ -2013,7 +2013,7 @@ static void webserver_images() {
 /*****************************************************************
  * Webserver page not found                                      *
  *****************************************************************/
-void webserver_not_found() {
+static void webserver_not_found() {
 	last_page_load = millis();
 	debug_out(F("output not found page..."), DEBUG_MIN_INFO, 1);
 	if (WiFi.status() != WL_CONNECTED) {
@@ -2030,7 +2030,7 @@ void webserver_not_found() {
 /*****************************************************************
  * Webserver setup                                               *
  *****************************************************************/
-void setup_webserver() {
+static void setup_webserver() {
 	server.on("/", webserver_root);
 	server.on("/config", webserver_config);
 	server.on("/wifi", webserver_wifi);
@@ -2072,7 +2072,7 @@ static int selectChannelForAp(struct struct_wifiInfo *info, int count) {
 /*****************************************************************
  * WifiConfig                                                    *
  *****************************************************************/
-void wifiConfig() {
+static void wifiConfig() {
 	debug_out(F("Starting WiFiManager"), DEBUG_MIN_INFO, 1);
 	debug_out(F("AP ID: "), DEBUG_MIN_INFO, 0);
 	debug_out(cfg::fs_ssid, DEBUG_MIN_INFO, 1);
@@ -2185,7 +2185,7 @@ static void waitForWifiToConnect(int maxRetries) {
 /*****************************************************************
  * WiFi auto connecting script                                   *
  *****************************************************************/
-void connectWifi() {
+static void connectWifi() {
 	debug_out(String(WiFi.status()), DEBUG_MIN_INFO, 1);
 	WiFi.disconnect();
 	WiFi.setOutputPower(20.5);
@@ -2214,7 +2214,7 @@ void connectWifi() {
 /*****************************************************************
  * send data to rest api                                         *
  *****************************************************************/
-void sendData(const String& data, const int pin, const char* host, const int httpPort, const char* url, const bool verify, const char* basic_auth_string, const String& contentType) {
+static void sendData(const String& data, const int pin, const char* host, const int httpPort, const char* url, const bool verify, const char* basic_auth_string, const String& contentType) {
 #include "ca-root.h"
 
 	debug_out(F("Start connecting to "), DEBUG_MIN_INFO, 0);
@@ -2307,7 +2307,7 @@ void sendData(const String& data, const int pin, const char* host, const int htt
 /*****************************************************************
  * send single sensor data to luftdaten.info api                 *
  *****************************************************************/
-void sendLuftdaten(const String& data, const int pin, const char* host, const int httpPort, const char* url, const bool verify, const char* replace_str) {
+static void sendLuftdaten(const String& data, const int pin, const char* host, const int httpPort, const char* url, const bool verify, const char* replace_str) {
 	String data_4_dusti = FPSTR(data_first_part);
 	data_4_dusti.replace("{v}", SOFTWARE_VERSION);
 	data_4_dusti += data;
@@ -2335,7 +2335,7 @@ void sendLuftdaten(const String& data, const int pin, const char* host, const in
 /*****************************************************************
  * send data to influxdb                                         *
  *****************************************************************/
-String create_influxdb_string(const String& data) {
+static String create_influxdb_string(const String& data) {
 	String data_4_influxdb = "";
 	debug_out(F("Parse JSON for influx DB"), DEBUG_MIN_INFO, 1);
 	debug_out(data, DEBUG_MIN_INFO, 1);
@@ -2364,7 +2364,7 @@ String create_influxdb_string(const String& data) {
 /*****************************************************************
  * send data as csv to serial out                                *
  *****************************************************************/
-void send_csv(const String& data) {
+static void send_csv(const String& data) {
 	StaticJsonBuffer<1000> jsonBuffer;
 	JsonObject& json2data = jsonBuffer.parseObject(data);
 	debug_out(F("CSV Output"), DEBUG_MIN_INFO, 1);
@@ -2607,7 +2607,7 @@ static String sensorDS18B20() {
 /*****************************************************************
  * read SDS011 sensor values                                     *
  *****************************************************************/
-String sensorSDS() {
+static String sensorSDS() {
 	String s = "";
 	char buffer;
 	int value;
@@ -2744,7 +2744,7 @@ String sensorSDS() {
 /*****************************************************************
  * read Plantronic PM sensor sensor values                       *
  *****************************************************************/
-String sensorPMS() {
+static String sensorPMS() {
 	String s = "";
 	char buffer;
 	int value;
@@ -2924,7 +2924,7 @@ String sensorPMS() {
 /*****************************************************************
  * read Honeywell PM sensor sensor values                        *
  *****************************************************************/
-String sensorHPM() {
+static String sensorHPM() {
 	String s = "";
 	char buffer;
 	int value;
@@ -3065,7 +3065,7 @@ String sensorHPM() {
 /*****************************************************************
  * read PPD42NS sensor values                                    *
  *****************************************************************/
-String sensorPPD() {
+static String sensorPPD() {
 	String s = "";
 
 	debug_out(String(FPSTR(DBG_TXT_START_READING)) + FPSTR(SENSORS_PPD42NS), DEBUG_MED_INFO, 1);
@@ -3146,7 +3146,7 @@ String sensorPPD() {
 /*****************************************************************
  * read GPS sensor values                                        *
  *****************************************************************/
-String sensorGPS() {
+static String sensorGPS() {
 	String s = "";
 	String gps_lat = "";
 	String gps_lon = "";
@@ -3280,7 +3280,7 @@ static void autoUpdate() {
 /*****************************************************************
  * display values                                                *
  *****************************************************************/
-void display_values() {
+static void display_values() {
 	double t_value = -128.0;
 	double h_value = -1.0;
 	double p_value = -1.0;
@@ -3522,7 +3522,7 @@ void display_values() {
 /*****************************************************************
  * Init OLED display                                             *
  *****************************************************************/
-void init_display() {
+static void init_display() {
 #include "oledfont.h"
 	display.init();
 	display.setFont(Roboto_Mono_9);
@@ -3533,7 +3533,7 @@ void init_display() {
 /*****************************************************************
  * Init LCD display                                              *
  *****************************************************************/
-void init_lcd() {
+static void init_lcd() {
 	if (cfg::has_lcd1602_27) {
 		lcd_1602_27.init();
 		lcd_1602_27.backlight();
@@ -3551,7 +3551,7 @@ void init_lcd() {
 /*****************************************************************
  * Init BMP280                                                   *
  *****************************************************************/
-bool initBMP280(char addr) {
+static bool initBMP280(char addr) {
 	debug_out(F("Trying BMP280 sensor on "), DEBUG_MIN_INFO, 0);
 	debug_out(String(addr, HEX), DEBUG_MIN_INFO, 0);
 
@@ -3567,7 +3567,7 @@ bool initBMP280(char addr) {
 /*****************************************************************
  * Init BME280                                                   *
  *****************************************************************/
-bool initBME280(char addr) {
+static bool initBME280(char addr) {
 	debug_out(F("Trying BME280 sensor on "), DEBUG_MIN_INFO, 0);
 	debug_out(String(addr, HEX), DEBUG_MIN_INFO, 0);
 
